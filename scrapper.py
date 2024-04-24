@@ -1,12 +1,12 @@
-import requests
 import logging
+
 from RPA.Browser.Selenium import Selenium
+from RPA.HTTP import HTTP
 from openpyxl.workbook import Workbook
 from selenium.webdriver.common.by import By
 
 from constants import JS_SCRIPT, SORT_BY, SITE_URL, STATIC
 from utils import XPATH_CONFIG
-
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +19,7 @@ class CollectFreshNews:
     def __init__(self, query):
         self.browser = Selenium()
         self.search_query = query
+        self.http_lib = HTTP
         self.news_data = []
 
     def open_available_browser(self, url):
@@ -63,6 +64,7 @@ class CollectFreshNews:
     def apply_sort_by_value(self, sorter):
         """Applies the specified sorting method"""
         try:
+            logging.error(f"Applying sorter for {sorter}")
             self.browser.select_from_list_by_value(XPATH_CONFIG.get('sorter'), sorter)
             self.browser.wait_until_page_contains_element(XPATH_CONFIG.get('search_result_list'))
         except Exception as e:
@@ -78,7 +80,8 @@ class CollectFreshNews:
             logging.error(f"Error counting search phrases: {e}")
             return 0
 
-    def is_amount_mentioned(self, string):
+    @staticmethod
+    def is_amount_mentioned(string):
         """Checks if any amount is mentioned in the string"""
         try:
             chars = ["$", "dollars", "dollar", "USD", "usd"]
@@ -94,20 +97,19 @@ class CollectFreshNews:
     def download_image(self, url, title):
         """Downloads an image from the specified URL"""
         try:
-            response = requests.get(url)
-            response.raise_for_status()
-            image_name = f"{title}.jpg"
-            with open(f"{STATIC}{image_name}.jpg", "wb") as file:
-                file.write(response.content)
+            logging.info(f"Started downloading image: {url}")
+            image_name = f"{STATIC}{title}.jpg"
+            self.http_lib.download(url, target_file=image_name)
             return image_name
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error downloading image: {e}")
+        except FileNotFoundError:
+            logging.error(f"Error downloading image for : {title}")
             return None
 
     def extract_data_from_list(self):
         """Extracts data from the list of articles"""
         try:
             articles = self.browser.find_elements(XPATH_CONFIG.get('article'))
+            logging.info(f"Total {len(articles)} are available to scrap data")
             for index, article in enumerate(articles):
                 title = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('title')).text
                 title = title.replace("...", "").strip()
@@ -143,7 +145,7 @@ class CollectFreshNews:
                 for j, key in enumerate(header):
                     sheet.cell(row=i, column=j + 1, value=row[key])
             workbook.save(f"{STATIC}{filename}.xlsx")
-            logging.info("Excel filed downloaded successfully")
+            logging.info("Excel file downloaded successfully")
         except Exception as e:
             logging.error(f"Error saving data in excel: {e}")
 
