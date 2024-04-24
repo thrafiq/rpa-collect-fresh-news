@@ -1,3 +1,7 @@
+import logging
+
+from constants import AMOUNT_INDICATORS
+
 XPATH_CONFIG = {
     'search_button': '//div[@class="site-header__search-trigger"]//button[@class="no-styles-button"]',
     'search_input': '//input[@class="search-bar__input"]',
@@ -14,3 +18,16 @@ XPATH_CONFIG = {
     'article': '//div[@class="search-result__list"]//article[@class="gc u-clickable-card gc--type-customsearch#result '
                'gc--list gc--with-image"]'
 }
+
+
+def is_amount_mentioned(string):
+    """Checks if any amount is mentioned in the string"""
+    try:
+        string_in_lower = string.lower()
+        for indicator in AMOUNT_INDICATORS:
+            if indicator in string_in_lower:
+                return True
+        return False
+    except Exception as e:
+        logging.error(f"Error checking if amount mentioned: {e}")
+        return False
