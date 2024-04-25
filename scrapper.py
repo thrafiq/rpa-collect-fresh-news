@@ -3,6 +3,7 @@ import logging
 from RPA.Browser.Selenium import Selenium
 from RPA.HTTP import HTTP
 from openpyxl.workbook import Workbook
+from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from RPA.Archive import Archive
 import shutil
@@ -33,7 +34,7 @@ class CollectFreshNews:
     def click_search_and_enter_query(self):
         """Clicks the search button and enters the search query"""
         try:
-            logging.info("Starting entering search query.")
+            logging.info(f"Starting entering search query: {self.search_query}")
             self.browser.wait_until_page_contains_element(XPATH_CONFIG.get('search_button'))
             self.browser.click_button(XPATH_CONFIG.get('search_button'))
             self.browser.input_text(XPATH_CONFIG.get('search_input'), self.search_query)
@@ -93,24 +94,32 @@ class CollectFreshNews:
             articles = self.browser.find_elements(XPATH_CONFIG.get('article'))
             logging.info(f"Total {len(articles)} are available to scrap data.")
             for index, article in enumerate(articles):
-                title = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('title')).text
-                title = title.replace("...", "").strip()
-                logging.info(f"Extracting data for: {title}.")
-                date = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('date')).text
-                description = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('description')).text
-                filename = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('filename')).get_attribute('src')
-                count_phrases = self.count_search_phrases(title, description)
-                includes_amount = is_amount_mentioned(title + description)
-                image = self.download_image(filename, title)
+                try:
+                    title = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('title')).text
+                    title = title.replace("...", "").strip()
+                    logging.info(f"Extracting data for: {title}.")
+                    description = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('description')).text
+                    filename = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('filename')).get_attribute(
+                        'src')
+                    count_phrases = self.count_search_phrases(title, description)
+                    includes_amount = is_amount_mentioned(title + description)
+                    image = self.download_image(filename, title)
 
-                self.news_data.append({
-                    'Title': title,
-                    'Date': date,
-                    'Description': description,
-                    'Image': image,
-                    'Count phrase': count_phrases,
-                    'Includes Amount': includes_amount
-                })
+                    try:
+                        date = article.find_element(by=By.XPATH, value=XPATH_CONFIG.get('date')).text
+                    except NoSuchElementException:
+                        date = ''
+
+                    self.news_data.append({
+                        'Title': title,
+                        'Date': date,
+                        'Description': description,
+                        'Image': image,
+                        'Count phrase': count_phrases,
+                        'Includes Amount': includes_amount
+                    })
+                except NoSuchElementException:
+                    logging.error(f"Error while extracting {index}th article")
         except Exception as e:
             logging.error(f"Error extracting data from list: {e}")
 
